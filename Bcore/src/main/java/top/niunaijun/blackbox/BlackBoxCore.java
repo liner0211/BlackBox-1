@@ -53,6 +53,7 @@ import top.niunaijun.blackbox.fake.hook.HookManager;
 import top.niunaijun.blackbox.proxy.ProxyManifest;
 import top.niunaijun.blackbox.utils.FileUtils;
 import top.niunaijun.blackbox.utils.ShellUtils;
+import top.niunaijun.blackbox.utils.Slog;
 import top.niunaijun.blackbox.utils.compat.BuildCompat;
 import top.niunaijun.blackbox.utils.compat.BundleCompat;
 import top.niunaijun.blackbox.utils.compat.XposedParserCompat;
@@ -353,8 +354,8 @@ public class BlackBoxCore extends ClientConfiguration {
         Bundle bundle = new Bundle();
         bundle.putString("_B_|_server_name_", name);
         Bundle vm = ProviderCall.callSafely(ProxyManifest.getBindProvider(), "VM", null, bundle);
-        assert vm != null;
         binder = BundleCompat.getBinder(vm, "_B_|_server_");
+        Slog.d(TAG, "getService: " + name + ", " + binder);
         mServices.put(name, binder);
         return binder;
     }
@@ -410,10 +411,12 @@ public class BlackBoxCore extends ClientConfiguration {
     }
 
     private void startLogcat() {
-        File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), getContext().getPackageName() + "_logcat.txt");
-        FileUtils.deleteDir(file);
-        ShellUtils.execCommand("logcat -c", false);
-        ShellUtils.execCommand("logcat >> " + file.getAbsolutePath() + " &", false);
+        new Thread(() -> {
+            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), getContext().getPackageName() + "_logcat.txt");
+            FileUtils.deleteDir(file);
+            ShellUtils.execCommand("logcat -c", false);
+            ShellUtils.execCommand("logcat -f " + file.getAbsolutePath(), false);
+        }).start();
     }
 
     private static String getProcessName(Context context) {
@@ -442,8 +445,8 @@ public class BlackBoxCore extends ClientConfiguration {
 
     private void initNotificationManager() {
         NotificationManager nm = (NotificationManager) BlackBoxCore.getContext().getSystemService(Context.NOTIFICATION_SERVICE);
-        String CHANNEL_ONE_ID = BlackBoxCore.getContext().getPackageName() + ".blackbox_proxy";
-        String CHANNEL_ONE_NAME = "blackbox_proxy";
+        String CHANNEL_ONE_ID = BlackBoxCore.getContext().getPackageName() + ".blackbox_core";
+        String CHANNEL_ONE_NAME = "blackbox_core";
         if (BuildCompat.isOreo()) {
             NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_ONE_ID,
                     CHANNEL_ONE_NAME, NotificationManager.IMPORTANCE_HIGH);
